@@ -1,10 +1,12 @@
 import {
   closePool,
   config,
+  installProcessGuards,
   isSuperAdmin,
   logger,
   markChannelMessagesDeleted,
   markMessageDeleted,
+  recordAudit,
   stopBoss,
   upsertChannel,
 } from "@app/shared";
@@ -112,6 +114,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const auth = await authorize(interaction);
   if (!auth.allowed) {
+    if (auth.auditDetail && interaction.guildId) {
+      void recordAudit({
+        guildId: interaction.guildId,
+        actorId: interaction.user.id,
+        action: "denied",
+        detail: auth.auditDetail,
+        outcome: "denied",
+      });
+    }
     await interaction
       .reply({ content: auth.reason ?? "Not allowed.", flags: MessageFlags.Ephemeral })
       .catch(() => {});
@@ -161,6 +172,7 @@ async function shutdown(signal: string): Promise<void> {
   process.exit(0);
 }
 
+installProcessGuards("discord-bot");
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 

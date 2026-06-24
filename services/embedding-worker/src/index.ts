@@ -4,6 +4,7 @@ import {
   EMBED_DOC_PREFIX,
   embedOne,
   getCorpusModels,
+  installProcessGuards,
   logger,
   stopBoss,
   workAttachments,
@@ -69,6 +70,7 @@ async function shutdown(signal: string): Promise<void> {
   process.exit(0);
 }
 
+installProcessGuards("embedding-worker");
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 

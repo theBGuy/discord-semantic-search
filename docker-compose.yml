@@ -9,7 +9,9 @@ x-app-build: &app-build
   build:
     context: .
     dockerfile: Dockerfile
-  image: dss-app:local
+  # Local builds tag as :local. To run a published release instead of building it, set
+  # APP_VERSION (e.g. v0.1.0) in .env, then `docker compose pull && docker compose up -d`.
+  image: ghcr.io/thebguy/discord-semantic-search:${APP_VERSION:-local}
 
 services:
   postgres:

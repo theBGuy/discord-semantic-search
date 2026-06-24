@@ -82,6 +82,18 @@ export const commands = [
     .addSubcommand((s) => s.setName("show").setDescription("Show current governance settings"))
     .addSubcommand((s) =>
       s
+        .setName("log")
+        .setDescription("Recent governance actions and denials in this server")
+        .addIntegerOption((o) =>
+          o
+            .setName("limit")
+            .setDescription("How many entries to show (default 20, max 50)")
+            .setMinValue(1)
+            .setMaxValue(50),
+        ),
+    )
+    .addSubcommand((s) =>
+      s
         .setName("add")
         .setDescription("Add a bot admin")
         .addUserOption((o) => o.setName("user").setDescription("User").setRequired(true)),

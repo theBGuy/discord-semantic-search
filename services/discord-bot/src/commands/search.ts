@@ -11,7 +11,7 @@ export async function handleSearch(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const query = interaction.options.getString("query", true);
-  const mode = (interaction.options.getString("mode") ?? "semantic") as "semantic" | "hybrid";
+  const mode = interaction.options.getString("mode") === "hybrid" ? "hybrid" : "semantic";
   const channel = interaction.options.getChannel("channel");
   const allServers = interaction.options.getBoolean("all_servers") ?? false;
 

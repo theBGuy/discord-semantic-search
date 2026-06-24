@@ -1,4 +1,4 @@
-import { closePool, config, logger, pool, version } from "@app/shared";
+import { closePool, config, installProcessGuards, logger, pool, version } from "@app/shared";
 import Fastify from "fastify";
 import { registerAskRoute } from "./routes/ask";
 import { registerGenerateRoutes } from "./routes/generate";
@@ -41,6 +41,7 @@ async function shutdown(signal: string): Promise<void> {
   process.exit(0);
 }
 
+installProcessGuards("search-api");
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 

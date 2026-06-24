@@ -1,14 +1,12 @@
 import {
   type AttachmentRecord,
-  type Chunk,
   chunkText,
   config,
   type DbClient,
-  EMBED_DOC_PREFIX,
   type EmbedAttachmentJob,
   type EmbedMessageJob,
   ExtractStatus,
-  embed,
+  embedChunks,
   extract,
   getEmbeddingState,
   isImageAttachment,
@@ -22,24 +20,6 @@ import {
   withTransaction,
 } from "@app/shared";
 import { ocrExtract } from "./ocr";
-
-/** Embed chunk texts (with the document prefix) and assert the model's output
- * dimension matches the column. A mismatch is a fatal config error, not a retry. */
-async function embedChunks(texts: string[]): Promise<Chunk[]> {
-  if (texts.length === 0) return [];
-  const vectors = await embed(texts.map((t) => EMBED_DOC_PREFIX + t));
-  return texts.map((text, i) => {
-    const embedding = vectors[i];
-    if (!embedding) throw new Error(`missing embedding for chunk ${i}`);
-    if (embedding.length !== config.EMBED_DIM) {
-      throw new Error(
-        `embedding dim ${embedding.length} != EMBED_DIM ${config.EMBED_DIM} ` +
-          `(model ${config.EMBED_MODEL}) — check EMBED_MODEL/EMBED_DIM and the VECTOR column`,
-      );
-    }
-    return { text, embedding };
-  });
-}
 
 /** Has this source already been embedded with the same content + model? */
 async function alreadyEmbedded(
@@ -91,17 +71,24 @@ interface Downloaded {
 }
 
 async function download(url: string, maxBytes: number): Promise<Downloaded> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    // 401/403/404 typically mean an expired/revoked signed CDN URL — not retryable here.
-    const permanent = res.status === 401 || res.status === 403 || res.status === 404;
-    return { buffer: null, permanentFailure: permanent };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), config.ATTACHMENT_DOWNLOAD_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) {
+      // 401/403/404 typically mean an expired/revoked signed CDN URL — not retryable here.
+      const permanent = res.status === 401 || res.status === 403 || res.status === 404;
+      return { buffer: null, permanentFailure: permanent };
+    }
+    const len = Number(res.headers.get("content-length") ?? "0");
+    if (len > maxBytes) return { buffer: null, permanentFailure: true };
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.byteLength > maxBytes) return { buffer: null, permanentFailure: true };
+    return { buffer, permanentFailure: false };
+  } finally {
+    // A timeout/abort surfaces as a thrown fetch error → the job retries (transient).
+    clearTimeout(timer);
   }
-  const len = Number(res.headers.get("content-length") ?? "0");
-  if (len > maxBytes) return { buffer: null, permanentFailure: true };
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.byteLength > maxBytes) return { buffer: null, permanentFailure: true };
-  return { buffer, permanentFailure: false };
 }
 
 export async function processAttachmentJob(job: EmbedAttachmentJob): Promise<void> {

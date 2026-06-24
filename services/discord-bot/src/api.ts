@@ -3,13 +3,20 @@ import { type Citation, config, type SearchFilters, type SearchHit } from "@app/
 const base = config.SEARCH_API_URL.replace(/\/$/, "");
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`search-api ${path} -> ${res.status}`);
-  return (await res.json()) as T;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), config.SEARCH_API_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`search-api ${path} -> ${res.status}`);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function apiSearch(body: {

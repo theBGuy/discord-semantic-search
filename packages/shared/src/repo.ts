@@ -349,8 +349,8 @@ export async function hybridSearch(
   filters: SearchFilters = {},
 ): Promise<SearchHit[]> {
   const k = topN * config.ANN_OVERSAMPLE;
-  const cap = Math.max(topN * 2, 30);
-  const rrfK = 50;
+  const cap = Math.max(topN * 2, config.RRF_CAP_MIN);
+  const rrfK = config.RRF_K;
   const vec = toVectorLiteral(queryEmbedding);
   const sql = `
     WITH semantic AS (

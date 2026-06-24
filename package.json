@@ -13,6 +13,9 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",
+    "check:ci": "biome ci .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "migrate": "tsx packages/shared/src/migrate-cli.ts",
     "reembed": "tsx packages/shared/src/reembed-cli.ts",
     "deploy-commands": "tsx services/discord-bot/src/commands/deploy.ts",
@@ -24,7 +27,8 @@
     "@biomejs/biome": "^2.5.0",
     "@types/node": "^22.20.0",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.9"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

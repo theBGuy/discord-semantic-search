@@ -1,6 +1,5 @@
 import {
   type ChatMessage,
-  type Citation,
   chat,
   config,
   EMBED_QUERY_PREFIX,
@@ -9,20 +8,14 @@ import {
   getLocalChatModel,
   getRecentMessages,
   logger,
-  messageUrl,
   type RecentMessage,
   type SearchHit,
   semanticSearch,
 } from "@app/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-
-const accessFilters = z
-  .object({
-    guildIds: z.array(z.string()).optional(),
-    channelIds: z.array(z.string()).optional(),
-  })
-  .optional();
+import { toCitations } from "../citations";
+import { accessFiltersSchema } from "../schemas";
 
 const CHAR_BUDGET = Math.max(2000, (config.NUM_CTX - 1024) * 3);
 
@@ -61,17 +54,6 @@ function buildHitContext(hits: SearchHit[]): { context: string; used: SearchHit[
   return { context: blocks.join("\n\n"), used };
 }
 
-function toCitations(hits: SearchHit[]): Citation[] {
-  return hits.map((h, i) => ({
-    index: i + 1,
-    channelName: h.channelName,
-    authorName: h.authorName,
-    timestamp: h.ts,
-    url: messageUrl(h.guildId, h.channelId, h.messageId),
-    preview: (h.chunkText || h.content).replace(/\s+/g, " ").trim().slice(0, 180),
-  }));
-}
-
 async function generate(system: string, user: string): Promise<string> {
   const messages: ChatMessage[] = [
     { role: "system", content: system },
@@ -97,16 +79,16 @@ const KB_SYSTEM = {
 const summarizeSchema = z.object({
   channelId: z.string().optional(),
   hours: z.number().int().positive().max(8760).optional(),
-  filters: accessFilters,
+  filters: accessFiltersSchema,
 });
 const digestSchema = z.object({
   hours: z.number().int().positive().max(8760).optional(),
-  filters: accessFilters,
+  filters: accessFiltersSchema,
 });
 const kbSchema = z.object({
   topic: z.string().min(1),
   kind: z.enum(["faq", "decisions", "timeline"]).default("faq"),
-  filters: accessFilters,
+  filters: accessFiltersSchema,
 });
 
 export function registerGenerateRoutes(app: FastifyInstance): void {
@@ -118,9 +100,9 @@ export function registerGenerateRoutes(app: FastifyInstance): void {
     const { channelId, hours, filters } = parsed.data;
     try {
       const messages = await getRecentMessages({
-        guildIds: filters?.guildIds,
+        guildIds: filters.guildIds,
         channelId,
-        channelIds: filters?.channelIds,
+        channelIds: filters.channelIds,
         sinceIso: hoursAgoIso(hours ?? 24),
         limit: config.SUMMARIZE_MAX_MESSAGES,
       });
@@ -145,8 +127,8 @@ export function registerGenerateRoutes(app: FastifyInstance): void {
     const { hours, filters } = parsed.data;
     try {
       const messages = await getRecentMessages({
-        guildIds: filters?.guildIds,
-        channelIds: filters?.channelIds,
+        guildIds: filters.guildIds,
+        channelIds: filters.channelIds,
         sinceIso: hoursAgoIso(hours ?? 24),
         limit: config.DIGEST_MAX_MESSAGES,
       });
@@ -172,8 +154,8 @@ export function registerGenerateRoutes(app: FastifyInstance): void {
     try {
       const embedding = await embedOne(EMBED_QUERY_PREFIX + topic);
       const hits = await semanticSearch(embedding, config.KB_TOP_K, {
-        guildIds: filters?.guildIds,
-        channelIds: filters?.channelIds,
+        guildIds: filters.guildIds,
+        channelIds: filters.channelIds,
       });
       if (hits.length === 0) {
         return reply.send({ content: "No relevant messages found for that topic.", citations: [] });

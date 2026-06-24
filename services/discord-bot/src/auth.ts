@@ -28,6 +28,9 @@ function hasManageGuild(interaction: ChatInputCommandInteraction): boolean {
 export interface AuthResult {
   allowed: boolean;
   reason?: string;
+  /** When set on a denial, the gate records an audit entry with this as the detail.
+   * Left undefined for operational noise (e.g. rate limiting) we don't want to log. */
+  auditDetail?: string;
 }
 
 /** Authorize a slash command per per-guild governance. Env super-admins are admin in
@@ -42,14 +45,22 @@ export async function authorize(interaction: ChatInputCommandInteraction): Promi
 
   if (SUPER_ADMIN_COMMANDS.has(cmd)) {
     if (isSuperAdmin(userId)) return { allowed: true };
-    return { allowed: false, reason: "🔒 This command is restricted to the bot operator." };
+    return {
+      allowed: false,
+      reason: "🔒 This command is restricted to the bot operator.",
+      auditDetail: `operator-only · /${cmd}`,
+    };
   }
 
   if (GUILD_ADMIN_COMMANDS.has(cmd)) {
     if (await isAdmin(guildId, userId)) return { allowed: true };
     // Bootstrap: before this server has its own admin, Manage-Server users qualify.
     if (!(await hasGuildAdmin(guildId)) && hasManageGuild(interaction)) return { allowed: true };
-    return { allowed: false, reason: "🔒 This command is admin-only in this server." };
+    return {
+      allowed: false,
+      reason: "🔒 This command is admin-only in this server.",
+      auditDetail: `admin-only · /${cmd}`,
+    };
   }
 
   if (USER_COMMANDS.has(cmd)) {
@@ -60,6 +71,7 @@ export async function authorize(interaction: ChatInputCommandInteraction): Promi
           allowed: false,
           reason:
             "🔒 You don't have access to this bot here. Ask a server admin to grant you access.",
+          auditDetail: `no access · /${cmd}`,
         };
       }
     }

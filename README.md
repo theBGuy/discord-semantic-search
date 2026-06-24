@@ -92,7 +92,7 @@ docker compose exec discord-bot pnpm deploy-commands
 - `/summarize [channel] [days] [hours]` — summarize a channel/thread's recent conversation.
 - `/digest [days] [hours]` — topic digest of recent activity across the channels you can see.
 - `/kb topic:<x> [kind:faq|decisions|timeline]` — synthesize a knowledge-base entry from history.
-- `/admin …` — governance: admins, access, rate limit (admin-only; see below).
+- `/admin …` — governance: admins, access, rate limit, audit log (admin-only; see below).
 
 ### Governance (per server)
 
@@ -113,6 +113,7 @@ User commands (`/search` `/ask` `/summarize` `/digest` `/kb`) obey that server's
 - `/admin disallow …` — revoke.
 - `/admin ratelimit per_hour:<n>` — per-user cap for this server (0 = off; admins exempt; default `RATE_LIMIT_PER_HOUR`).
 - `/admin show` — view this server's governance.
+- `/admin log [limit]` — audit trail of governance changes and access denials in this server.
 
 `/search` and `/ask` are scoped to the server they're invoked in **and to the channels the
 asker can read** (results never include channels the user can't see; public threads inherit
@@ -181,6 +182,7 @@ Both are persisted in the DB; `CHAT_MODEL` / `CHAT_MODEL_LOCAL` are the env defa
 pnpm install
 pnpm typecheck        # tsc --noEmit across the workspace
 pnpm check            # biome format + lint (write)
+pnpm test             # vitest unit tests
 pnpm migrate          # run DB migrations (needs a reachable Postgres)
 pnpm dev:bot | dev:worker | dev:api
 ```
@@ -211,3 +213,29 @@ OCR runs in `embedding-worker` on image attachments (PNG/JPG/WebP/GIF/BMP/TIFF),
 `OCR_ENABLED`. It's CPU-bound (~1–3s/image), so a screenshot-heavy backfill takes time —
 track it with `/status`. The English model is baked into the image; add
 `tesseract-ocr-<lang>` packages and set `OCR_LANG` for other languages.
+
+## Releases
+
+Releases follow [Semantic Versioning](https://semver.org) and are published as GitHub
+Releases (with notes from the [CHANGELOG](CHANGELOG.md)) plus multi-arch container images
+on the GitHub Container Registry at `ghcr.io/thebguy/discord-semantic-search`.
+
+To run a published release instead of building from source, set `APP_VERSION` in `.env`
+(e.g. `APP_VERSION=v0.1.0`) and pull the prebuilt image:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Maintainers: see [RELEASING.md](RELEASING.md) for how to cut a release.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, project
+layout, and conventions, and our [Code of Conduct](CODE_OF_CONDUCT.md). To report a
+security vulnerability, follow [SECURITY.md](SECURITY.md) (please don't open a public issue).
+
+## License
+
+[MIT](LICENSE) © theBGuy

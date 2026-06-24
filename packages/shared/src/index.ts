@@ -1,3 +1,4 @@
+export { type AuditEntry, type AuditOutcome, type AuditRow, listAudit, recordAudit } from "./audit";
 export * from "./chunk";
 export type { Config } from "./config";
 export {
@@ -15,6 +16,7 @@ export {
   toVectorLiteral,
   withTransaction,
 } from "./db";
+export { embedChunks } from "./embedding";
 export {
   type ExtractResult,
   ExtractStatus,
@@ -35,6 +37,7 @@ export {
   listModels,
   version,
 } from "./ollama";
+export { installProcessGuards } from "./process-guards";
 export * from "./queue";
 export {
   currentEmbeddingDimension,

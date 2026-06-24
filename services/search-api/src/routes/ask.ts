@@ -1,6 +1,5 @@
 import {
   type ChatMessage,
-  type Citation,
   chat,
   config,
   EMBED_QUERY_PREFIX,
@@ -8,25 +7,17 @@ import {
   getChatModel,
   getLocalChatModel,
   logger,
-  messageUrl,
   type SearchHit,
   semanticSearch,
 } from "@app/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { toCitations } from "../citations";
+import { fullFiltersSchema } from "../schemas";
 
 const askSchema = z.object({
   question: z.string().min(1),
-  filters: z
-    .object({
-      guildIds: z.array(z.string()).optional(),
-      channelId: z.string().optional(),
-      authorId: z.string().optional(),
-      after: z.string().optional(),
-      before: z.string().optional(),
-      channelIds: z.array(z.string()).optional(),
-    })
-    .optional(),
+  filters: fullFiltersSchema,
 });
 
 const SYSTEM_PROMPT = `You answer questions using ONLY the provided Discord message excerpts.
@@ -54,18 +45,6 @@ function buildContext(hits: SearchHit[]): { context: string; used: SearchHit[] }
   return { context: blocks.join("\n\n"), used };
 }
 
-function toCitations(hits: SearchHit[]): Citation[] {
-  // Index matches the [n] numbering buildContext gave the model (used[0] -> [1]).
-  return hits.map((h, i) => ({
-    index: i + 1,
-    channelName: h.channelName,
-    authorName: h.authorName,
-    timestamp: h.ts,
-    url: messageUrl(h.guildId, h.channelId, h.messageId),
-    preview: (h.chunkText || h.content).replace(/\s+/g, " ").trim().slice(0, 180),
-  }));
-}
-
 export function registerAskRoute(app: FastifyInstance): void {
   app.post("/ask", async (req, reply) => {
     const parsed = askSchema.safeParse(req.body);
@@ -78,7 +57,7 @@ export function registerAskRoute(app: FastifyInstance): void {
     let context: string;
     try {
       const queryEmbedding = await embedOne(EMBED_QUERY_PREFIX + question);
-      const hits = await semanticSearch(queryEmbedding, config.RAG_TOP_K, filters ?? {});
+      const hits = await semanticSearch(queryEmbedding, config.RAG_TOP_K, filters);
       ({ context, used } = buildContext(hits));
     } catch (err) {
       logger.error({ err }, "ask retrieval failed");

@@ -1,7 +1,9 @@
 import { type Citation, messageUrl, type SearchHit } from "@app/shared";
 import { EmbedBuilder } from "discord.js";
 
-const COLOR = 0x5865f2; // Discord blurple
+/** Discord blurple — the accent color for all of the bot's embeds. */
+export const BLURPLE = 0x5865f2;
+const COLOR = BLURPLE;
 const MAX_FIELDS = 10; // embeds allow 25; keep replies scannable
 
 function unixSeconds(iso: string): number {
@@ -88,7 +90,7 @@ export function normalizeCitations(text: string): string {
 }
 
 /** All distinct source numbers the model cited. */
-function citedIndices(answer: string): Set<number> {
+export function citedIndices(answer: string): Set<number> {
   const refs = new Set<number>();
   for (const m of answer.matchAll(CITATION_RE)) {
     for (const part of (m[1] ?? "").split(/[\s,]+/)) {
@@ -100,7 +102,7 @@ function citedIndices(answer: string): Set<number> {
 }
 
 /** Keep only the sources the model actually cited; fall back to the top few. */
-function citedOnly(answer: string, citations: Citation[]): Citation[] {
+export function citedOnly(answer: string, citations: Citation[]): Citation[] {
   const refs = citedIndices(answer);
   const cited = citations.filter((c) => refs.has(c.index));
   return cited.length > 0 ? cited : citations.slice(0, 5);

@@ -61,6 +61,11 @@ const schema = z.object({
   KB_TOP_K: z.coerce.number().int().positive().default(30),
   ANN_OVERSAMPLE: z.coerce.number().int().positive().default(20),
   HNSW_EF_SEARCH: z.coerce.number().int().positive().default(60),
+  // Hybrid-search Reciprocal Rank Fusion: RRF_K damps the weight of low ranks
+  // (score = 1/(RRF_K + rank)); RRF_CAP_MIN floors how many candidates each arm
+  // (vector + full-text) keeps before fusion (the cap is max(topN*2, RRF_CAP_MIN)).
+  RRF_K: z.coerce.number().int().positive().default(50),
+  RRF_CAP_MIN: z.coerce.number().int().positive().default(30),
 
   // ── Chunking ─────────────────────────────────────────────────────────────--
   CHUNK_MAX_CHARS: z.coerce.number().int().positive().default(1800),
@@ -72,6 +77,9 @@ const schema = z.object({
 
   // ── Attachments ──────────────────────────────────────────────────────────--
   ATTACHMENT_MAX_BYTES: z.coerce.number().int().positive().default(10_485_760),
+  // Abort an attachment download that stalls past this (ms) so a hung CDN socket
+  // can't hold a queue job open past its visibility window.
+  ATTACHMENT_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 
   // ── OCR (Phase 3): extract text from image attachments via Tesseract ───────--
   OCR_ENABLED: envBool(true),
@@ -83,6 +91,9 @@ const schema = z.object({
   // ── Services ─────────────────────────────────────────────────────────────--
   SEARCH_API_URL: z.string().default("http://search-api:3000"),
   SEARCH_API_PORT: z.coerce.number().int().positive().default(3000),
+  // Abort a bot->search-api request that stalls past this (ms) so the slash
+  // interaction fails cleanly instead of hanging until Discord's deadline.
+  SEARCH_API_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
 
   // ── Governance ─────────────────────────────────────────────────────────────
   // Discord user IDs that are ALWAYS bot admins (comma-separated). Cannot be locked out.

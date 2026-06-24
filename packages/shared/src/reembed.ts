@@ -1,9 +1,9 @@
 import { chunkText } from "./chunk";
-import { config, EMBED_DOC_PREFIX } from "./config";
+import { config } from "./config";
 import { pool, withTransaction } from "./db";
+import { embedChunks } from "./embedding";
 import { logger } from "./logger";
-import { embed } from "./ollama";
-import { type Chunk, replaceEmbeddings } from "./repo";
+import { replaceEmbeddings } from "./repo";
 import { SourceType, type SourceTypeValue } from "./types";
 
 /** Current dimension of the embeddings.embedding column, or null if not yet set. */
@@ -55,14 +55,8 @@ async function embedAndStore(
   contentHash: string,
 ): Promise<number> {
   const texts = chunkText(text).slice(0, config.MAX_CHUNKS_PER_JOB);
-  if (texts.length === 0) return 0;
-  const vectors = await embed(texts.map((t) => EMBED_DOC_PREFIX + t));
-  const chunks: Chunk[] = [];
-  for (let i = 0; i < texts.length; i++) {
-    const t = texts[i];
-    const v = vectors[i];
-    if (t && v) chunks.push({ text: t, embedding: v });
-  }
+  const chunks = await embedChunks(texts);
+  if (chunks.length === 0) return 0;
   await withTransaction((client) =>
     replaceEmbeddings(
       client,

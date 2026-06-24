@@ -8,23 +8,13 @@ import {
 } from "@app/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-
-const filtersSchema = z
-  .object({
-    guildIds: z.array(z.string()).optional(),
-    channelId: z.string().optional(),
-    authorId: z.string().optional(),
-    after: z.string().optional(),
-    before: z.string().optional(),
-    channelIds: z.array(z.string()).optional(),
-  })
-  .optional();
+import { fullFiltersSchema } from "../schemas";
 
 const searchSchema = z.object({
   query: z.string().min(1),
   mode: z.enum(["semantic", "hybrid"]).default("semantic"),
   topN: z.number().int().positive().max(100).optional(),
-  filters: filtersSchema,
+  filters: fullFiltersSchema,
 });
 
 export function registerSearchRoute(app: FastifyInstance): void {
@@ -40,8 +30,8 @@ export function registerSearchRoute(app: FastifyInstance): void {
       const queryEmbedding = await embedOne(EMBED_QUERY_PREFIX + query);
       const hits =
         mode === "hybrid"
-          ? await hybridSearch(queryEmbedding, query, n, filters ?? {})
-          : await semanticSearch(queryEmbedding, n, filters ?? {});
+          ? await hybridSearch(queryEmbedding, query, n, filters)
+          : await semanticSearch(queryEmbedding, n, filters);
       // Avoid logging full query text / results at info level (privacy).
       logger.info({ mode, count: hits.length }, "search served");
       return reply.send({ mode, hits });

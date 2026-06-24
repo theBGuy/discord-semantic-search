@@ -1,0 +1,75 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please don't include secrets
+        (tokens, API keys) in logs you paste. For security issues, see SECURITY.md instead.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and this isn't a duplicate
+          required: true
+        - label: I'm on the latest `master`
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md)
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+      placeholder: When I run /search ..., the bot replies with ... but I expected ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part seems involved?
+      options:
+        - Not sure
+        - discord-bot
+        - embedding-worker
+        - search-api
+        - database / migrations
+        - docker / compose / deployment
+    validations:
+      required: true
+  - type: dropdown
+    id: ollama-mode
+    attributes:
+      label: Ollama setup
+      options:
+        - Local container (--profile local-ollama)
+        - Remote Ollama on LAN
+        - Ollama Cloud
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD`
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste relevant `docker compose logs` output (secrets redacted). This is automatically formatted as code.
+      render: shell
