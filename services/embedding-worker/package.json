@@ -1,0 +1,13 @@
+{
+  "name": "@app/embedding-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*",
+    "tsx": "^4.22.4"
+  }
+}

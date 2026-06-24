@@ -1,0 +1,35 @@
+{
+  "name": "discord-semantic-search",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write .",
+    "migrate": "tsx packages/shared/src/migrate-cli.ts",
+    "reembed": "tsx packages/shared/src/reembed-cli.ts",
+    "deploy-commands": "tsx services/discord-bot/src/commands/deploy.ts",
+    "dev:bot": "tsx watch services/discord-bot/src/index.ts",
+    "dev:worker": "tsx watch services/embedding-worker/src/index.ts",
+    "dev:api": "tsx watch services/search-api/src/index.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.0",
+    "@types/node": "^22.20.0",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@biomejs/biome"
+    ]
+  }
+}

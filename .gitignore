@@ -1,0 +1,24 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps & build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# logs
+*.log
+logs/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# docker volumes (if ever bind-mounted locally)
+pgdata/
+ollamadata/

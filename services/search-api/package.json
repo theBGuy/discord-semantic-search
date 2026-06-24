@@ -1,0 +1,15 @@
+{
+  "name": "@app/search-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*",
+    "fastify": "^5.2.0",
+    "tsx": "^4.22.4",
+    "zod": "^4.4.0"
+  }
+}

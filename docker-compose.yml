@@ -1,0 +1,131 @@
+name: discord-semantic-search
+
+# CPU-portable base stack. For NVIDIA GPU acceleration, add the override:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile local-ollama up -d
+# To use a remote Ollama / Ollama Cloud instead of the bundled container, set
+# OLLAMA_BASE_URL (+ OLLAMA_API_KEY) in .env and OMIT `--profile local-ollama`.
+
+x-app-build: &app-build
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: dss-app:local
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-discord}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-discord_search}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432" # localhost-only, for debugging
+    restart: unless-stopped
+
+  # ── Local Ollama (opt-in via the `local-ollama` profile) ───────────────────
+  ollama:
+    image: ollama/ollama
+    profiles: ["local-ollama"]
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ollamadata:/root/.ollama
+    healthcheck:
+      # `ollama list` only proves the daemon answers; real model readiness is gated
+      # by the `ollama-init` service completing. Do not drop ollama-init.
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama
+    profiles: ["local-ollama"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for i in $$(seq 1 30); do
+          if ollama pull ${EMBED_MODEL:-nomic-embed-text} && ollama pull ${CHAT_MODEL:-qwen2.5:7b}; then
+            echo "models ready"; exit 0
+          fi
+          echo "model pull failed (attempt $$i/30), retrying in 5s..."; sleep 5
+        done
+        echo "model pull failed after retries"; exit 1
+    restart: "no"
+
+  # ── One-shot migrations (runs runMigrations() via pg, then exits) ──────────
+  migrate:
+    <<: *app-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    command: ["pnpm", "migrate"]
+    restart: "no"
+
+  # ── Application services ───────────────────────────────────────────────────
+  discord-bot:
+    <<: *app-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    command: ["pnpm", "--filter", "@app/discord-bot", "start"]
+    restart: unless-stopped # outbound only — no inbound port
+
+  embedding-worker:
+    <<: *app-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    # No hard dependency on ollama: the worker tolerates Ollama being unavailable and
+    # retries jobs via the queue (so it works with local OR remote/cloud Ollama).
+    command: ["pnpm", "--filter", "@app/embedding-worker", "start"]
+    restart: unless-stopped
+
+  search-api:
+    <<: *app-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    # No host port published — reachable only on the internal network (queries stay private).
+    command: ["pnpm", "--filter", "@app/search-api", "start"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollamadata:

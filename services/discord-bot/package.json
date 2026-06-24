@@ -1,0 +1,15 @@
+{
+  "name": "@app/discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "deploy-commands": "tsx src/commands/deploy.ts"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*",
+    "discord.js": "^14.16.0",
+    "tsx": "^4.22.4"
+  }
+}
