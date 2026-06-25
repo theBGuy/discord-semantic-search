@@ -49,6 +49,10 @@ First public release — the complete feature set ships in the initial version.
 
 ### Indexing & ingestion
 
+- **Embed & integration indexing** — embed text (title / description / fields / author /
+  footer) is now indexed, and bot/webhook messages that carry embeds or attachments
+  (GitHub, RSS, status bots, …) are kept even with `SKIP_BOT_MESSAGES=true`. `/index`
+  gained a `reindex:true` option that re-crawls a channel from scratch to backfill them.
 - **Resumable historical backfill** (`/index`) — crawls full channel/thread history with
   per-scope checkpoints, so an interrupted or restarted run resumes exactly where it left off.
 - **Targeted indexing** — scope a run to up to five specific channels, threads, or whole

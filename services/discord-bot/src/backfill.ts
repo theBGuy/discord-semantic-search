@@ -3,6 +3,7 @@ import {
   getScope,
   logger,
   PRIORITY_BACKFILL,
+  resetScope,
   ScopeType,
   type ScopeTypeValue,
   updateScope,
@@ -239,7 +240,7 @@ async function backfillBackward(scope: ScopeDef, oldestSeenId: string | null): P
   return total;
 }
 
-async function crawlScope(scope: ScopeDef): Promise<number> {
+async function crawlScope(scope: ScopeDef, reset: boolean): Promise<number> {
   const ch = scope.channel;
   const isThread = scope.scopeType === ScopeType.Thread;
   await upsertChannel({
@@ -250,6 +251,8 @@ async function crawlScope(scope: ScopeDef): Promise<number> {
     type: ch.type,
   });
   await upsertScope(ch.id, scope.scopeType, ch.guildId, scope.parentId);
+  // reindex: clear checkpoints so we re-walk the whole scope from scratch.
+  if (reset) await resetScope(ch.id);
   const state = await getScope(ch.id);
   const alreadyDone = state?.backfillDone ?? false;
   logger.info({ channel: ch.id, name: ch.name, thread: isThread, alreadyDone }, "indexing scope");
@@ -287,7 +290,11 @@ async function runPool<T>(
   return total;
 }
 
-async function backfillGuild(guild: Guild, targetChannelIds?: string[]): Promise<void> {
+async function backfillGuild(
+  guild: Guild,
+  targetChannelIds?: string[],
+  reset = false,
+): Promise<void> {
   const me = guild.members.me ?? (await guild.members.fetchMe().catch(() => null));
   const { scopes, skipped } = await collectScopes(guild, me, targetChannelIds);
   logger.info(
@@ -296,6 +303,7 @@ async function backfillGuild(guild: Guild, targetChannelIds?: string[]): Promise
       name: guild.name,
       scopes: scopes.length,
       skipped,
+      reset,
       concurrency: config.BACKFILL_CONCURRENCY,
     },
     "backfilling guild",
@@ -303,7 +311,7 @@ async function backfillGuild(guild: Guild, targetChannelIds?: string[]): Promise
   const messagesEnqueued = await runPool(scopes, config.BACKFILL_CONCURRENCY, async (scope) => {
     activeScopes++;
     try {
-      return await crawlScope(scope);
+      return await crawlScope(scope, reset);
     } finally {
       activeScopes--;
     }
@@ -318,7 +326,7 @@ async function backfillGuild(guild: Guild, targetChannelIds?: string[]): Promise
  * against concurrent runs; scopes within a guild crawl with BACKFILL_CONCURRENCY. */
 export async function runBackfill(
   client: Client,
-  opts: { guildId?: string; targetChannelIds?: string[] } = {},
+  opts: { guildId?: string; targetChannelIds?: string[]; reset?: boolean } = {},
 ): Promise<void> {
   if (running) {
     logger.warn("backfill already running; ignoring trigger");
@@ -330,7 +338,7 @@ export async function runBackfill(
       ? [client.guilds.cache.get(opts.guildId)].filter((g): g is Guild => g != null)
       : [...client.guilds.cache.values()];
     for (const guild of guilds) {
-      await backfillGuild(guild, opts.targetChannelIds);
+      await backfillGuild(guild, opts.targetChannelIds, opts.reset);
     }
     logger.info("backfill complete");
   } finally {

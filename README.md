@@ -94,7 +94,7 @@ docker compose exec discord-bot pnpm deploy-commands
 
 - `/search query:<text> [mode:semantic|hybrid] [channel:#x] [all_servers:true]`
 - `/ask question:<text> [all_servers:true]`
-- `/index [channel]` — start/resume backfill of everything, or just one channel/category (*Manage Server*; resumable, crawls scopes concurrently).
+- `/index [channel] [reindex]` — start/resume backfill of everything, or just one channel/category; `reindex:true` re-crawls from scratch (*Manage Server*; resumable, concurrent).
 - `/status` — indexed counts, queue depth, backfill progress, models (*Manage Server*).
 - `/model [set]` — view or switch the active chat/reasoning model (*Manage Server*).
 - `/summarize [channel] [days] [hours]` — summarize a channel/thread's recent conversation.
@@ -131,6 +131,10 @@ parent access). All replies are ephemeral (only you see them).
 
 - **Live consistency:** edits re-embed; single, bulk, and channel/thread deletions tombstone
   the affected messages so they drop out of search.
+- **Integrations & embeds:** embed text (title/description/fields) is indexed, and
+  bot/webhook messages that carry embeds or attachments (GitHub, RSS, status bots, …) are
+  kept even with `SKIP_BOT_MESSAGES=true`. If you indexed a channel *before* this, run
+  `/index channel:#that-channel reindex:true` to re-crawl and pick the embeds up.
 - **Model drift:** the worker asserts the embedding dimension at startup and warns if the
   corpus already contains vectors from a different model/dim (re-embed after a model change).
 - **Backpressure:** backfill only *enqueues*; the worker embeds asynchronously. Watch progress
@@ -207,20 +211,6 @@ See [db/migrations](db/migrations/). Snowflake IDs are `BIGINT` stored/handled a
 - Slash replies are **ephemeral**.
 - Secrets (`DISCORD_TOKEN`, DB creds, `OLLAMA_API_KEY`) live in `.env` (git-ignored).
 - Logs stay local and avoid recording full query/result bodies.
-
-## Roadmap
-
-Phases 1 (search/RAG), 2 (attachment text), 3 (**OCR** — text from image attachments via
-bundled Tesseract), and 4 (**AI features** — `/summarize`, `/digest`, `/kb`) are
-implemented, along with per-user access filtering and the `/status` ops view. The
-AI-feature commands respect the asker's channel access just like search. Deferred: the
-web dashboard. Everything extends the same chunk → embed → UPSERT pipeline and the
-polymorphic `embeddings` table.
-
-OCR runs in `embedding-worker` on image attachments (PNG/JPG/WebP/GIF/BMP/TIFF), gated by
-`OCR_ENABLED`. It's CPU-bound (~1–3s/image), so a screenshot-heavy backfill takes time —
-track it with `/status`. The English model is baked into the image; add
-`tesseract-ocr-<lang>` packages and set `OCR_LANG` for other languages.
 
 ## Releases
 

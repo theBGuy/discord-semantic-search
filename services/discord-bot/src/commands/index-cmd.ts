@@ -19,19 +19,24 @@ export async function handleIndex(
       return true;
     });
   const targetChannelIds = channels.map((c) => c.id);
+  const reindex = interaction.options.getBoolean("reindex") ?? false;
 
   // Fire-and-forget: backfill can run long; it self-guards against concurrent runs
   // and is resumable, so we don't await it here. Scoped to the invoking server.
   void runBackfill(client, {
     guildId: interaction.guildId ?? undefined,
     targetChannelIds: targetChannelIds.length > 0 ? targetChannelIds : undefined,
+    reset: reindex,
   }).catch((err) => logger.error({ err }, "backfill error"));
 
   const scope =
     channels.length === 0
       ? "all reachable channels"
       : channels.map((c) => `**${c.name ?? c.id}**`).join(", ");
+  const how = reindex
+    ? "Re-indexing from scratch (re-crawling already-indexed history)"
+    : "Backfill started";
   await interaction.editReply(
-    `Backfill started for ${scope}. It runs in the background — messages become searchable as they're indexed. Run again anytime to resume; use /status to watch progress.`,
+    `${how} for ${scope}. It runs in the background — messages become searchable as they're indexed. Run again anytime to resume; use /status to watch progress.`,
   );
 }

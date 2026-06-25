@@ -217,6 +217,18 @@ export async function updateScope(scopeId: string, patch: ScopePatch): Promise<v
   );
 }
 
+/** Clear a scope's crawl checkpoints so the next backfill re-walks it from scratch
+ * (used by `/index reindex:true`, e.g. to pick up messages that were previously skipped). */
+export async function resetScope(scopeId: string): Promise<void> {
+  await pool.query(
+    `UPDATE indexing_state
+        SET oldest_seen_id = NULL, newest_seen_id = NULL,
+            backfill_done = false, archived_done = false, last_error = NULL, updated_at = now()
+      WHERE scope_id = $1`,
+    [scopeId],
+  );
+}
+
 interface ScopeRow {
   scope_id: string;
   scope_type: number;

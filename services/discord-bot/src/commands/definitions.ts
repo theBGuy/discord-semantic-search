@@ -48,6 +48,13 @@ export const commands = [
     .addChannelOption((o) =>
       o.setName("channel_5").setDescription("Additional channel/category to index"),
     )
+    .addBooleanOption((o) =>
+      o
+        .setName("reindex")
+        .setDescription(
+          "Re-crawl from scratch — re-index already-indexed history (e.g. to pick up embeds)",
+        ),
+    )
     .setDMPermission(false),
 
   new SlashCommandBuilder()
