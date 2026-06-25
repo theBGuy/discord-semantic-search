@@ -7,10 +7,10 @@ import {
   getChatModel,
   getLocalChatModel,
   getRecentMessages,
+  hybridSearch,
   logger,
   type RecentMessage,
   type SearchHit,
-  semanticSearch,
 } from "@app/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -153,10 +153,15 @@ export function registerGenerateRoutes(app: FastifyInstance): void {
     const { topic, kind, filters } = parsed.data;
     try {
       const embedding = await embedOne(EMBED_QUERY_PREFIX + topic);
-      const hits = await semanticSearch(embedding, config.KB_TOP_K, {
-        guildIds: filters.guildIds,
-        channelIds: filters.channelIds,
-      });
+      // Hybrid retrieval so the topic's exact terms (names, identifiers) match, not just
+      // semantically-similar text.
+      const hits = await hybridSearch(
+        embedding,
+        topic,
+        config.KB_TOP_K,
+        { guildIds: filters.guildIds, channelIds: filters.channelIds },
+        true,
+      );
       if (hits.length === 0) {
         return reply.send({ content: "No relevant messages found for that topic.", citations: [] });
       }

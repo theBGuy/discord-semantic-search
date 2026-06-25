@@ -135,6 +135,8 @@ parent access). All replies are ephemeral (only you see them).
   bot/webhook messages that carry embeds or attachments (GitHub, RSS, status bots, …) are
   kept even with `SKIP_BOT_MESSAGES=true`. If you indexed a channel *before* this, run
   `/index channel:#that-channel reindex:true` to re-crawl and pick the embeds up.
+  (`/ask` and `/kb` use OR-mode hybrid retrieval so these keyword-heavy updates surface in
+  answers, and `/ask` pulls the earliest/latest match for "when did X start / latest X" questions.)
 - **Model drift:** the worker asserts the embedding dimension at startup and warns if the
   corpus already contains vectors from a different model/dim (re-embed after a model change).
 - **Backpressure:** backfill only *enqueues*; the worker embeds asynchronously. Watch progress

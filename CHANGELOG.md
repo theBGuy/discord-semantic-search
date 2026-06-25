@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `/ask` and `/kb` now use **hybrid retrieval** (semantic + full-text) instead of
+  semantic-only, with the full-text arm in **OR mode** so keyword/identifier-heavy content
+  (commit logs, error strings, usernames, integration embeds) is eligible — a
+  natural-language question no longer has to match every word. `/search` keeps its precise
+  AND behavior.
+- `/ask` adds **time-aware retrieval**: "when did X start / latest X" questions pull the
+  earliest/newest matching message into the answer context, so origin/recency questions get
+  the boundary message that relevance ranking alone would never surface.
+- Postgres no longer publishes a host port — it's reachable only on the internal compose
+  network, so it can't clash with another local Postgres instance. Use
+  `docker compose exec postgres psql -U discord -d discord_search` for ad-hoc queries.
+
 ## [0.1.0] - 2026-06-25
 
 First public release — the complete feature set ships in the initial version.

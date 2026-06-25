@@ -27,8 +27,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    ports:
-      - "127.0.0.1:5432:5432" # localhost-only, for debugging
+    # No host port: Postgres is reachable only on the internal compose network (the app
+    # services connect by service name), so it can't clash with another local Postgres. For
+    # ad-hoc queries run `docker compose exec postgres psql -U discord -d discord_search`,
+    # or publish a port temporarily with a compose override when you need a host connection.
     restart: unless-stopped
 
   # ── Local Ollama (opt-in via the `local-ollama` profile) ───────────────────

@@ -359,13 +359,22 @@ export async function hybridSearch(
   queryText: string,
   topN: number,
   filters: SearchFilters = {},
+  ftsOr = false,
 ): Promise<SearchHit[]> {
   const k = topN * config.ANN_OVERSAMPLE;
   const cap = Math.max(topN * 2, config.RRF_CAP_MIN);
   const rrfK = config.RRF_K;
   const vec = toVectorLiteral(queryEmbedding);
+  // RAG callers pass ftsOr=true: OR the websearch terms so a message matching ANY key term
+  // is eligible (a natural-language question ANDs every word, which drops terse content like
+  // commit notifications). /search keeps the precise AND behavior. ts_rank still ranks by
+  // how well the terms match, and RRF + the semantic arm anchor relevance.
+  const ftsExpr = ftsOr
+    ? "replace(websearch_to_tsquery($10::regconfig, $11)::text, '&', '|')::tsquery"
+    : "websearch_to_tsquery($10::regconfig, $11)";
   const sql = `
-    WITH semantic AS (
+    WITH tsq AS (SELECT ${ftsExpr} AS q),
+    semantic AS (
       SELECT message_id, ROW_NUMBER() OVER (ORDER BY dist) AS rank_ix
       FROM (
         SELECT DISTINCT ON (message_id) message_id, dist FROM (
@@ -384,10 +393,10 @@ export async function hybridSearch(
     full_text AS (
       SELECT m.message_id,
              ROW_NUMBER() OVER (
-               ORDER BY ts_rank_cd(m.fts, websearch_to_tsquery($10::regconfig, $11)) DESC
+               ORDER BY ts_rank_cd(m.fts, (SELECT q FROM tsq)) DESC
              ) AS rank_ix
       FROM messages m
-      WHERE m.fts @@ websearch_to_tsquery($10::regconfig, $11) AND NOT m.deleted ${FILTER_SQL}
+      WHERE m.fts @@ (SELECT q FROM tsq) AND NOT m.deleted ${FILTER_SQL}
       ORDER BY rank_ix
       LIMIT $13
     )
@@ -415,6 +424,49 @@ export async function hybridSearch(
     ]);
     return rows.map(mapHit);
   });
+}
+
+/** Candidate pool (by full-text relevance) the time-boundary is drawn from. */
+const BOUNDARY_POOL = 200;
+
+/** For temporal-extremum questions ("when was X started", "the latest X"): the
+ * oldest/newest message among the most full-text-relevant matches. The query terms are
+ * OR'd (any term matches) and ranked by relevance to focus on the subject, then the pool is
+ * ordered by time — so a single old message (e.g. the first commit to a branch) surfaces
+ * even though pure relevance ranking would never float it into the top results. */
+export async function boundaryMessages(
+  queryText: string,
+  filters: SearchFilters,
+  order: "asc" | "desc",
+  limit: number,
+): Promise<SearchHit[]> {
+  const sql = `
+    WITH tsq AS (
+      SELECT replace(websearch_to_tsquery($1::regconfig, $2)::text, '&', '|')::tsquery AS q
+    ),
+    cand AS (
+      SELECT m.message_id, m.guild_id, m.channel_id, c.name AS channel_name, m.thread_id,
+             m.author_id, m.author_name, m.ts, m.content,
+             ts_rank_cd(m.fts, (SELECT q FROM tsq)) AS rank
+      FROM messages m
+      LEFT JOIN channels c ON c.channel_id = m.channel_id
+      WHERE (SELECT q FROM tsq) @@ m.fts AND NOT m.deleted ${FILTER_SQL}
+      ORDER BY rank DESC
+      LIMIT ${BOUNDARY_POOL}
+    )
+    SELECT message_id, guild_id, channel_id, channel_name, thread_id, author_id, author_name,
+           ts, content, NULL::text AS chunk_text, rank AS score
+    FROM cand
+    ORDER BY ts ${order === "asc" ? "ASC" : "DESC"}
+    LIMIT $9`;
+  // $1 lang, $2 queryText, $3–$8 filters, $9 limit
+  const { rows } = await pool.query<HitRow>(sql, [
+    config.FTS_LANG,
+    queryText,
+    ...filterParams(filters),
+    limit,
+  ]);
+  return rows.map(mapHit);
 }
 
 export interface RecentMessagesOptions {

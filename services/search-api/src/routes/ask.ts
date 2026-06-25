@@ -1,4 +1,5 @@
 import {
+  boundaryMessages,
   type ChatMessage,
   chat,
   config,
@@ -6,14 +7,15 @@ import {
   embedOne,
   getChatModel,
   getLocalChatModel,
+  hybridSearch,
   logger,
   type SearchHit,
-  semanticSearch,
 } from "@app/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { toCitations } from "../citations";
 import { fullFiltersSchema } from "../schemas";
+import { detectTemporal } from "../temporal";
 
 const askSchema = z.object({
   question: z.string().min(1),
@@ -57,8 +59,26 @@ export function registerAskRoute(app: FastifyInstance): void {
     let context: string;
     try {
       const queryEmbedding = await embedOne(EMBED_QUERY_PREFIX + question);
-      const hits = await semanticSearch(queryEmbedding, config.RAG_TOP_K, filters);
-      ({ context, used } = buildContext(hits));
+      // Hybrid (semantic + full-text, OR mode) so keyword/identifier-heavy content (commit
+      // logs, error strings, usernames) is retrieved into the answer context, not just
+      // semantically-similar prose.
+      const hits = await hybridSearch(queryEmbedding, question, config.RAG_TOP_K, filters, true);
+      // For "when did X start / latest X" questions, also pull the time-boundary message(s)
+      // among the relevant matches — relevance ranking alone won't surface a single old item
+      // (e.g. the first commit to a branch). Prepended so they make the context budget.
+      const temporal = detectTemporal(question);
+      let candidates = hits;
+      if (temporal) {
+        const boundary = await boundaryMessages(
+          question,
+          filters,
+          temporal === "first" ? "asc" : "desc",
+          6,
+        );
+        const seen = new Set(boundary.map((h) => h.messageId));
+        candidates = [...boundary, ...hits.filter((h) => !seen.has(h.messageId))];
+      }
+      ({ context, used } = buildContext(candidates));
     } catch (err) {
       logger.error({ err }, "ask retrieval failed");
       return reply.status(503).send({ error: "search backend unavailable" });
