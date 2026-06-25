@@ -10,16 +10,13 @@ and fixes in **patch** versions (`0.Y.Z`).
 
 ## Cutting a release
 
+You no longer hand-edit the changelog at release time. During development, accumulate
+changes under the `## [Unreleased]` heading in [CHANGELOG.md](CHANGELOG.md); to cut a
+release, just tag and push.
+
 1. Make sure `master` is green (CI passing) and your working tree is clean.
-2. Pick the next version `X.Y.Z`.
-3. In [CHANGELOG.md](CHANGELOG.md), rename the `## [Unreleased]` heading to
-   `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` section above it.
-   (Optionally bump `version` in the root `package.json` to match.)
-4. Commit:
-   ```bash
-   git commit -am "chore(release): vX.Y.Z"
-   ```
-5. Tag and push:
+2. Pick the next version `X.Y.Z`, and confirm `## [Unreleased]` holds the notes for it.
+3. Tag and push:
    ```bash
    git tag vX.Y.Z
    git push origin master --follow-tags
@@ -27,14 +24,24 @@ and fixes in **patch** versions (`0.Y.Z`).
 
 That's it. The `Release` workflow triggers on the tag and:
 
-- creates a **GitHub Release** named `vX.Y.Z`, using the matching `## [X.Y.Z]` section of
-  `CHANGELOG.md` as the body; and
+- creates a **GitHub Release** named `vX.Y.Z`, using the `## [X.Y.Z]` section of
+  `CHANGELOG.md` if you pre-flipped it, otherwise falling back to `## [Unreleased]` (so the
+  body is never empty);
 - builds and pushes a **multi-arch image** (`linux/amd64` + `linux/arm64`) to the GitHub
   Container Registry at `ghcr.io/<owner>/discord-semantic-search`, tagged both `:vX.Y.Z`
-  and `:latest`.
+  and `:latest`; and
+- **flips the changelog** on `master`: renames `## [Unreleased]` to `## [X.Y.Z] - <date>`,
+  opens a fresh empty `## [Unreleased]` above it, and bumps `version` in the root
+  `package.json` to match — committed as `github-actions[bot]`.
 
 After it finishes, check the **Releases** page and the **Packages** tab to confirm both
-published.
+published, and `git pull` to get the changelog-flip commit.
+
+> Notes on the auto-flip: the **tagged commit itself** still shows `## [Unreleased]` — the
+> flip lands on `master` as a follow-up commit, not retroactively on the tag. The flip is
+> idempotent, so pre-flipping the changelog by hand (the old flow) still works and is left
+> untouched. If `master` has branch protection that blocks pushes from `github-actions[bot]`,
+> the flip step will fail; flip the changelog manually or grant the workflow push access.
 
 > The very first release should be `v0.1.0`. The image name assumes the repository is
 > named `discord-semantic-search`; if you rename it, update the image in

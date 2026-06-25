@@ -1,13 +1,15 @@
 name: Release
 
-# Fires when a version tag is pushed (see RELEASING.md). Publishes a GitHub Release with
-# the CHANGELOG section for that version, and builds + pushes the multi-arch image to GHCR.
+# Fires when a version tag is pushed (see RELEASING.md). On a tag it: publishes a GitHub
+# Release using the matching CHANGELOG section, builds + pushes the multi-arch image to GHCR,
+# and then flips the CHANGELOG's [Unreleased] section to the released version on the default
+# branch so the next cycle starts clean — no manual changelog edit needed before tagging.
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write # create the GitHub Release
+  contents: write # create the GitHub Release and push the CHANGELOG flip
   packages: write # push images to GHCR
 
 jobs:
@@ -24,12 +26,26 @@ jobs:
           echo "image=ghcr.io/${owner}/discord-semantic-search" >> "$GITHUB_OUTPUT"
 
       - name: Extract release notes from CHANGELOG
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          awk -v ver="${{ steps.vars.outputs.version }}" '
-            $0 ~ "^## \\[" ver "\\]" { capture = 1; next }
-            capture && /^## \[/ { exit }
-            capture { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
+          # Print the body of a "## [heading]" section, stopping at the next "## [" heading.
+          # Uses literal prefix matching (index()), so it is portable across awk variants and
+          # is never confused by the dots in a version number being regex wildcards.
+          extract() {
+            awk -v heading="$1" '
+              index($0, heading) == 1 { capture = 1; next }
+              capture && index($0, "## [") == 1 { exit }
+              capture { print }
+            ' CHANGELOG.md
+          }
+          # Prefer the versioned section; fall back to [Unreleased]. The changelog flip happens
+          # after this job, so at tag time the notes for this release usually still live under
+          # [Unreleased] — this keeps the release body from ever being empty.
+          extract "## [${VERSION}]" > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            extract "## [Unreleased]" > RELEASE_NOTES.md
+          fi
           if [ ! -s RELEASE_NOTES.md ]; then
             echo "Release ${GITHUB_REF_NAME}. See CHANGELOG.md." > RELEASE_NOTES.md
           fi
@@ -65,3 +81,71 @@ jobs:
             ${{ steps.vars.outputs.image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # After a successful release, flip the CHANGELOG's [Unreleased] section to the released
+  # version on the default branch and open a fresh empty [Unreleased], so the next cycle
+  # starts clean. This commit is made by github-actions[bot] straight to the default branch;
+  # because it is pushed with GITHUB_TOKEN it does not re-trigger CI.
+  changelog:
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Flip [Unreleased] to the released version
+        id: flip
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          version="${VERSION#v}"
+          # Does any line start with the given literal heading? (literal, so the dots in a
+          # version are never treated as regex wildcards, and the trailing "]" prevents
+          # 0.1.0 from matching 0.1.0-rc1).
+          has_section() { awk -v h="$1" 'index($0, h) == 1 { f = 1 } END { exit f ? 0 : 1 }' CHANGELOG.md; }
+          # Idempotent: if the changelog was already flipped (e.g. pre-flipped by hand), stop.
+          if has_section "## [${version}]"; then
+            echo "CHANGELOG already has a [${version}] section; nothing to flip."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! has_section "## [Unreleased]"; then
+            echo "No [Unreleased] section found; skipping flip." >&2
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          date="$(date -u +%Y-%m-%d)"
+          # Replace only the first "## [Unreleased]" with a fresh empty [Unreleased] heading
+          # plus the released heading; everything below it becomes the released section.
+          awk -v ver="$version" -v d="$date" '
+            !flipped && index($0, "## [Unreleased]") == 1 {
+              print "## [Unreleased]"
+              print ""
+              print "## [" ver "] - " d
+              flipped = 1
+              next
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          # Keep the root package.json "version" in sync, editing only that value so the rest
+          # of the file is preserved byte-for-byte (no formatter drift).
+          VER="$version" node -e '
+            const fs = require("node:fs");
+            const p = "package.json";
+            const s = fs.readFileSync(p, "utf8").replace(/("version":\s*")[^"]*(")/, `$1${process.env.VER}$2`);
+            fs.writeFileSync(p, s);
+          '
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push the changelog flip
+        if: steps.flip.outputs.changed == 'true'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md package.json
+          git commit -m "chore(release): flip CHANGELOG for ${GITHUB_REF_NAME}"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
