@@ -129,3 +129,6 @@ First public release — the complete feature set ships in the initial version.
 - MIT license; Contributing, Code of Conduct, and Security policy; issue and PR templates.
 - GitHub Actions CI (typecheck + Biome + tests), a Vitest unit-test suite, `.editorconfig`,
   and `.nvmrc`.
+- Brand identity: the **Mimir** logo — a runic "M" (Mannaz) mark in indigo + gold — with
+  app icon, favicon, monochrome mark, and wordmark/combination lockups under
+  [`assets/logo/`](assets/logo/).

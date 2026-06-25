@@ -1,7 +1,7 @@
 import { config, getBackfillStats, getIndexStats, getQueueStats, logger } from "@app/shared";
 import { type ChatInputCommandInteraction, EmbedBuilder, MessageFlags } from "discord.js";
 import { getIndexerState } from "../backfill";
-import { BLURPLE } from "../format";
+import { BRAND } from "../format";
 
 const n = (x: number) => x.toLocaleString("en-US");
 
@@ -17,7 +17,7 @@ export async function handleStatus(interaction: ChatInputCommandInteraction): Pr
     ]);
 
     const embed = new EmbedBuilder()
-      .setColor(BLURPLE)
+      .setColor(BRAND)
       .setTitle("📊 Index status")
       .addFields(
         {

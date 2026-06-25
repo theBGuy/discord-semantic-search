@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Mimir">
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#312E81"/><stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#t)"/>
+  <g fill="none" stroke="#FBBF24" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="80" y1="66" x2="80" y2="190"/>
+    <line x1="176" y1="66" x2="176" y2="190"/>
+    <line x1="80" y1="74" x2="150" y2="130"/>
+    <line x1="176" y1="74" x2="106" y2="130"/>
+  </g>
+</svg>

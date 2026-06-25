@@ -1,9 +1,17 @@
-# Discord Semantic Search & Knowledge Assistant
+<p align="center">
+  <img src="assets/logo/final/mimir-icon.svg" alt="Mimir" width="116" />
+</p>
 
-Self-hosted, local-first semantic search and RAG over your Discord servers. Indexes
-historical + live messages (and text attachments), embeds them locally with **Ollama**,
-stores vectors in **Postgres + pgvector**, and answers `/search` and `/ask` slash
-commands privately — nothing leaves your host and queries are never public.
+<h1 align="center">Mimir</h1>
+
+<p align="center">
+  <strong>Self-hosted, local-first semantic search &amp; knowledge assistant for Discord.</strong>
+</p>
+
+Mimir indexes your Discord servers' historical and live messages (and text attachments),
+embeds them locally with **Ollama**, stores vectors in **Postgres + pgvector**, and answers
+`/search` and `/ask` slash commands privately — nothing leaves your host and queries are
+never public.
 
 ## Architecture
 

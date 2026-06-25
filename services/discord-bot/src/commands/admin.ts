@@ -19,7 +19,7 @@ import {
   setRateLimitPerHour,
 } from "@app/shared";
 import { type ChatInputCommandInteraction, EmbedBuilder, MessageFlags } from "discord.js";
-import { BLURPLE } from "../format";
+import { BRAND } from "../format";
 
 const fmt = (ids: string[], wrap: (id: string) => string) =>
   (ids.length ? ids.map(wrap).join(", ") : "_none_").slice(0, 1024);
@@ -58,7 +58,7 @@ export async function handleAdmin(interaction: ChatInputCommandInteraction): Pro
           getRateLimitPerHour(guildId),
         ]);
         const embed = new EmbedBuilder()
-          .setColor(BLURPLE)
+          .setColor(BRAND)
           .setTitle("🛡️ Governance — this server")
           .addFields(
             { name: "Operator (env, all servers)", value: users(admins.superIds), inline: true },
@@ -183,7 +183,7 @@ export async function handleAdmin(interaction: ChatInputCommandInteraction): Pro
           return `${when} · <@${r.actorId}> · ${label}${detail}`;
         });
         const embed = new EmbedBuilder()
-          .setColor(BLURPLE)
+          .setColor(BRAND)
           .setTitle("📜 Audit log — this server")
           .setDescription(lines.join("\n").slice(0, 4096))
           .setFooter({ text: `${entries.length} most recent` });

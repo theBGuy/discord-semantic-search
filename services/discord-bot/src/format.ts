@@ -1,9 +1,9 @@
 import { type Citation, messageUrl, type SearchHit } from "@app/shared";
 import { EmbedBuilder } from "discord.js";
 
-/** Discord blurple — the accent color for all of the bot's embeds. */
-export const BLURPLE = 0x5865f2;
-const COLOR = BLURPLE;
+/** Mimir brand accent (gold) — the embed sidebar color across all of the bot's replies. */
+export const BRAND = 0xfbbf24;
+const COLOR = BRAND;
 const MAX_FIELDS = 10; // embeds allow 25; keep replies scannable
 
 function unixSeconds(iso: string): number {

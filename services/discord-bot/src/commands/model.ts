@@ -13,7 +13,7 @@ import {
   EmbedBuilder,
   MessageFlags,
 } from "discord.js";
-import { BLURPLE } from "../format";
+import { BRAND } from "../format";
 
 const codeList = (models: string[], sep: string, max: number) =>
   models
@@ -72,7 +72,7 @@ export async function handleModel(interaction: ChatInputCommandInteraction): Pro
 
     const [primary, local] = await Promise.all([getChatModel(), getLocalChatModel()]);
     const embed = new EmbedBuilder()
-      .setColor(BLURPLE)
+      .setColor(BRAND)
       .setTitle("🧠 Chat / reasoning model")
       .setDescription(
         cloud

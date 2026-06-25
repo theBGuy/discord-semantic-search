@@ -22,3 +22,4 @@ Thumbs.db
 # docker volumes (if ever bind-mounted locally)
 pgdata/
 ollamadata/
+/.claude/skills/logo-creator.zip
